@@ -13,6 +13,22 @@ import { uploadPostImage } from "../middleware/multer-config";
 
 const router = Router();
 
+/**
+ * @openapi
+ * /api/posts:
+ *   get:
+ *     summary: List posts
+ *     tags: [Posts]
+ *     responses:
+ *       200:
+ *         description: List of posts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Post'
+ */
 router.get("/", getPosts);
 router.get("/:id", getPostById);
 router.post("/", requireAuth, uploadPostImage, createPost);

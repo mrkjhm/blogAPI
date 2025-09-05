@@ -40,4 +40,9 @@ export const ENV = {
   CLOUDINARY_CLOUD_NAME: required("CLOUDINARY_CLOUD_NAME"),
   CLOUDINARY_API_KEY: required("CLOUDINARY_API_KEY"),
   CLOUDINARY_API_SECRET: required("CLOUDINARY_API_SECRET"),
+
+  // Swagger protection toggles (optional)
+  SWAGGER_ENABLED: (process.env.SWAGGER_ENABLED ?? "false") === "true",
+  DOCS_USER: process.env.DOCS_USER ?? "",
+  DOCS_PASS: process.env.DOCS_PASS ?? "",
 } as const;

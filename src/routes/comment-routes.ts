@@ -15,6 +15,28 @@ import { requireAuth } from "../middleware/auth-jwt";
 
 const router = Router();
 
+/**
+ * @openapi
+ * /api/comments/{postId}/roots:
+ *   get:
+ *     summary: Get root comments for a post
+ *     tags: [Comments]
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of root comments
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Comment'
+ */
 // create comment / reply
 router.post("/:postId", requireAuth, addComment);
 router.post("/:postId/replies/:parentId", requireAuth, addReply);
