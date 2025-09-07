@@ -98,48 +98,37 @@ const UserSchema = new mongoose_1.Schema({
         },
     },
 });
-// --- Virtual id (nicer for clients) ---
 UserSchema.virtual("id").get(function () {
     return this._id.toString();
 });
-// --- Indexes ---
-UserSchema.index({ email: 1 }, { unique: true });
-// --- Hash on save ---
 UserSchema.pre("save", function (next) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a;
         if (!this.isModified("password"))
             return next();
         const salt = yield bcrypt_1.default.genSalt(SALT_ROUNDS);
-        // @ts-ignore
         this.password = yield bcrypt_1.default.hash(this.password, salt);
-        // track rotation for token invalidation
-        // @ts-ignore
         this.passwordUpdatedAt = new Date();
-        // @ts-ignore
         this.tokenVersion = ((_a = this.tokenVersion) !== null && _a !== void 0 ? _a : 0) + 1;
         next();
     });
 });
-// --- (Defence-in-depth) Hash if password is changed via findOneAndUpdate ---
-// Prefer using .save() flow, but this prevents accidents.
 UserSchema.pre("findOneAndUpdate", function (next) {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b, _c, _d, _e, _f, _g;
+        var _a, _b, _c, _d, _e, _f, _g, _h;
         const update = this.getUpdate() || {};
-        const nextPwd = (_c = (_a = update.password) !== null && _a !== void 0 ? _a : (_b = update.$set) === null || _b === void 0 ? void 0 : _b.password) !== null && _c !== void 0 ? _c : (update.$setOnInsert && update.$setOnInsert.password);
+        const nextPwd = (_c = (_a = update.password) !== null && _a !== void 0 ? _a : (_b = update.$set) === null || _b === void 0 ? void 0 : _b.password) !== null && _c !== void 0 ? _c : (_d = update.$setOnInsert) === null || _d === void 0 ? void 0 : _d.password;
         if (!nextPwd)
             return next();
         const salt = yield bcrypt_1.default.genSalt(SALT_ROUNDS);
         const hashed = yield bcrypt_1.default.hash(nextPwd, salt);
         if (update.password)
             update.password = hashed;
-        if ((_d = update.$set) === null || _d === void 0 ? void 0 : _d.password)
+        if ((_e = update.$set) === null || _e === void 0 ? void 0 : _e.password)
             update.$set.password = hashed;
-        if ((_e = update.$setOnInsert) === null || _e === void 0 ? void 0 : _e.password)
+        if ((_f = update.$setOnInsert) === null || _f === void 0 ? void 0 : _f.password)
             update.$setOnInsert.password = hashed;
-        // bump token version & timestamp too
-        update.$set = Object.assign(Object.assign({}, (update.$set || {})), { tokenVersion: (((_g = (_f = update.$set) === null || _f === void 0 ? void 0 : _f.tokenVersion) !== null && _g !== void 0 ? _g : 0) + 1), passwordUpdatedAt: new Date() });
+        update.$set = Object.assign(Object.assign({}, (update.$set || {})), { tokenVersion: (((_h = (_g = update.$set) === null || _g === void 0 ? void 0 : _g.tokenVersion) !== null && _h !== void 0 ? _h : 0) + 1), passwordUpdatedAt: new Date() });
         next();
     });
 });

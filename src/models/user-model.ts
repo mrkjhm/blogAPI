@@ -42,7 +42,7 @@ const UserSchema: Schema<IUser & {
     versionKey: false,
     toJSON: {
       virtuals: true,
-      transform(_doc, ret: any) {
+      transform(_doc: unknown, ret: Record<string, any>) {
         // Never leak sensitive internals
         delete ret.password;
         delete ret.avatarPublicId;
@@ -53,7 +53,7 @@ const UserSchema: Schema<IUser & {
     },
     toObject: {
       virtuals: true,
-      transform(_doc, ret: any) {
+      transform(_doc: unknown, ret: Record<string, any>) {
         delete ret.password;
         delete ret.avatarPublicId;
         delete ret.tokenVersion;
@@ -64,36 +64,28 @@ const UserSchema: Schema<IUser & {
   }
 );
 
-// --- Virtual id (nicer for clients) ---
+
 UserSchema.virtual("id").get(function (this: any) {
   return this._id.toString();
 });
 
-// --- Indexes ---
-UserSchema.index({ email: 1 }, { unique: true });
 
-// --- Hash on save ---
-UserSchema.pre("save", async function (next) {
+UserSchema.pre("save", async function (this: IUser, next: () => void) {
   if (!this.isModified("password")) return next();
   const salt = await bcrypt.genSalt(SALT_ROUNDS);
-  // @ts-ignore
   this.password = await bcrypt.hash(this.password, salt);
-  // track rotation for token invalidation
-  // @ts-ignore
   this.passwordUpdatedAt = new Date();
-  // @ts-ignore
   this.tokenVersion = (this.tokenVersion ?? 0) + 1;
   next();
 });
 
-// --- (Defence-in-depth) Hash if password is changed via findOneAndUpdate ---
-// Prefer using .save() flow, but this prevents accidents.
+
 UserSchema.pre("findOneAndUpdate", async function (next) {
-  const update: any = this.getUpdate() || {};
+  const update: any = this.getUpdate() as Record<string, any> || {};
   const nextPwd =
     update.password ??
     update.$set?.password ??
-    (update.$setOnInsert && update.$setOnInsert.password);
+    update.$setOnInsert?.password;
 
   if (!nextPwd) return next();
 
@@ -104,7 +96,7 @@ UserSchema.pre("findOneAndUpdate", async function (next) {
   if (update.$set?.password) update.$set.password = hashed;
   if (update.$setOnInsert?.password) update.$setOnInsert.password = hashed;
 
-  // bump token version & timestamp too
+
   update.$set = {
     ...(update.$set || {}),
     tokenVersion: ((update.$set?.tokenVersion ?? 0) + 1),
@@ -115,7 +107,9 @@ UserSchema.pre("findOneAndUpdate", async function (next) {
 });
 
 // --- Methods ---
-UserSchema.methods.comparePassword = async function (this: any, candidate: string) {
+UserSchema.methods.comparePassword = async function (
+  this: IUser, candidate: string
+): Promise<boolean> {
   return bcrypt.compare(candidate, this.password);
 };
 

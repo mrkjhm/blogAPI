@@ -33,14 +33,6 @@ type ChangeEmailBody = {
   newEmail: string;
 };
 
-function uploadBufferToCloudinary(buffer: Buffer, opts: any) {
-  return new Promise<any>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(opts, (err, result) =>
-      err ? reject(err) : resolve(result)
-    );
-    stream.end(buffer);
-  });
-}
 
 // LOGIN (USER AND ADMIN) - DONE
 export const loginUser = async (

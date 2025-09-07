@@ -22,12 +22,6 @@ const user_model_1 = __importDefault(require("../models/user-model"));
 const token_1 = require("../utils/token");
 const ACCESS_TOKEN_SECRET = env_1.ENV.ACCESS_TOKEN_SECRET;
 const REFRESH_TOKEN_SECRET = env_1.ENV.REFRESH_TOKEN_SECRET;
-function uploadBufferToCloudinary(buffer, opts) {
-    return new Promise((resolve, reject) => {
-        const stream = cloudinary_1.cloudinary.uploader.upload_stream(opts, (err, result) => err ? reject(err) : resolve(result));
-        stream.end(buffer);
-    });
-}
 // LOGIN (USER AND ADMIN) - DONE
 const loginUser = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c, _d;
