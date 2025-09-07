@@ -10,8 +10,8 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "resolveJsonModule": true,
-    "typeRoots": ["./node_modules/@types", "./src/types"],
     "types": ["node"],
+    "typeRoots": ["./node_modules/@types", "./src/types"],
     "forceConsistentCasingInFileNames": true
   },
   "include": ["src"],
