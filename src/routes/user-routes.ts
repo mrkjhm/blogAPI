@@ -9,6 +9,7 @@ import {
   getUserByEmail,
   getUserById,
   loginUser,
+  logoutUser,
   refreshToken,
   registerUser,
   updateAvatar,
@@ -127,6 +128,7 @@ router.put("/:id/avatar", requireAuth, uploadAvatar, updateAvatar);
 router.post("/:id/change-password", requireAuth, changePassword)
 router.post("/:id/change-email", requireAuth, changeEmail)    // change email (no verify for portfolio)
 router.put("/:id/update-by-admin", requireAuth, requireAdmin, adminUpdateUsername);
+router.post("/logout", logoutUser);
 
 
 export default router;

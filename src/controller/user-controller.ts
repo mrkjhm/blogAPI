@@ -6,6 +6,10 @@ import sharp from "sharp";
 import { cloudinary } from "../config/cloudinary";
 import { ENV } from "../config/env";
 import User from "../models/user-model";
+import {
+  accessTokenCookieOptions,
+  refreshTokenCookieOptions,
+} from "../utils/cookieOptions";
 import { createAccessToken, createRefreshToken } from "../utils/token";
 
 const ACCESS_TOKEN_SECRET = ENV.ACCESS_TOKEN_SECRET;
@@ -15,6 +19,7 @@ type RegisterBody = {
   name?: string;
   email?: string;
   password?: string;
+  confirmPassword?: string
 };
 
 type LoginBody = {
@@ -32,7 +37,6 @@ type ChangeEmailBody = {
   password: string;
   newEmail: string;
 };
-
 
 // LOGIN (USER AND ADMIN) - DONE
 export const loginUser = async (
@@ -71,7 +75,7 @@ export const loginUser = async (
     user.lastLogin = new Date();
     await user.save({ validateBeforeSave: false });
 
-    const access = createAccessToken({
+    const accessToken = createAccessToken({
       _id: user._id as string | mongoose.Types.ObjectId,
       tokenVersion: (user as any).tokenVersion,
       isAdmin: user.isAdmin,
@@ -81,13 +85,18 @@ export const loginUser = async (
       tokenVersion: (user as any).tokenVersion,
     });
 
+    res.cookie("accessToken", accessToken, accessTokenCookieOptions);
+    res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
+
     // Optionally also return access in body (useful for Postman / mobile)
     const safe = user.toJSON(); // strips password, avatarPublicId, etc (per schema transform)
+
+
     res.status(200).json({
       message: "Login successful",
       user: safe,
-      accessToken: access,
-      refreshToken: refreshToken,
+      // accessToken: accessToken,
+      // refreshToken: refreshToken,
     });
   } catch (err) {
     next(err);
@@ -103,19 +112,33 @@ export const registerUser = async (
     const name = (req.body?.name ?? "").trim();
     const email = (req.body?.email ?? "").trim().toLowerCase();
     const password = req.body?.password ?? "";
+    const confirmPassword = req.body?.confirmPassword ?? "";
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !confirmPassword) {
       res
         .status(400)
-        .json({ message: "name, email and password are required" });
+        .json({ message: "All fields are required" });
       return;
     }
+    if (password !== confirmPassword) {
+      res.status(400).json({
+        message: "Password doesn't match"
+      })
+    }
+
     if (password.length < 8) {
       res
         .status(400)
         .json({ message: "Password must be at least 8 characters" });
       return;
     }
+
+    if (!email.includes("@")) {
+      res.status(400).json({
+        message: "Invalid email format"
+      })
+    }
+
     if (await User.exists({ email })) {
       res.status(409).json({ message: "Email already in use" });
       return;
@@ -358,19 +381,16 @@ export const deleteUser = async (
     const publicId = user.avatarPublicId ?? `avatars/user_${id}`;
 
     try {
-
       const result = await cloudinary.uploader.destroy(publicId, {
         resource_type: "image",
         invalidate: true,
-        type: "upload"
+        type: "upload",
       });
 
       result.result;
-
     } catch (error) {
-      next(error)
+      next(error);
     }
-
 
     await user.deleteOne();
 
@@ -473,12 +493,10 @@ export const updateAvatar = async (
       return;
     }
     console.error("Avatar update error:", err);
-    res
-      .status(500)
-      .json({
-        message: "Avatar update failed",
-        error: err?.message || String(err),
-      });
+    res.status(500).json({
+      message: "Avatar update failed",
+      error: err?.message || String(err),
+    });
   }
 };
 
@@ -547,11 +565,9 @@ export const changePassword = async (
     }
 
     if (currentPassword === newPassword) {
-      res
-        .status(400)
-        .json({
-          message: "New password must be different from current password",
-        });
+      res.status(400).json({
+        message: "New password must be different from current password",
+      });
       return;
     }
 
@@ -572,8 +588,6 @@ export const changePassword = async (
 
     res.status(200).json({
       message: "Password changed successfully",
-      accessToken,
-      refreshToken,
     });
   } catch (error) {
     next(error);
@@ -682,62 +696,106 @@ export const adminUpdateUsername = async (
     .json({ message: "Name updated by admin", user: user.toJSON() });
 };
 
-export const refreshToken = async (req: Request, res: Response) => {
-  const { refreshToken } = req.body;
+// export const refreshToken = async (req: Request, res: Response) => {
+//   const token = req.cookies?.refreshToken;
 
-  if (!refreshToken) {
-    return res.status(401).json({ message: "Missing refresh token" });
-  }
+//   if (!token) {
+//     return res.status(401).json({ message: "Missing refresh token" });
+//   }
+
+//   try {
+//     // 1. Decode and verify refresh token
+//     const payload = jwt.verify(
+//       token,
+//       REFRESH_TOKEN_SECRET
+//     ) as jwt.JwtPayload & {
+//       sub: string; // user ID
+//       tv: number; // tokenVersion
+//     };
+
+//     // 2. Lookup user and validate tokenVersion
+//     const user = await User.findById(payload.sub).select("+tokenVersion");
+//     if (!user) {
+//       return res.status(401).json({ message: "User not found" });
+//     }
+
+//     if (user.tokenVersion !== payload.tv) {
+//       return res.status(401).json({ message: "Token has been revoked" });
+//     }
+
+//     // 3. Generate new access token (15m)
+//     const newAccessToken = jwt.sign(
+//       {
+//         sub: user.id,
+//         tv: user.tokenVersion,
+//         isAdmin: user.isAdmin,
+//       },
+//       ACCESS_TOKEN_SECRET,
+//       { expiresIn: "15m" }
+//     );
+
+//     // 4. Optionally issue new refresh token (7d)
+//     const newRefreshToken = jwt.sign(
+//       {
+//         sub: user.id,
+//         tv: user.tokenVersion,
+//       },
+//       REFRESH_TOKEN_SECRET,
+//       { expiresIn: "7d" }
+//     );
+
+//     res.cookie("accessToken", newAccessToken, accessTokenCookieOptions);
+//     res.cookie("refreshToken", newRefreshToken, refreshTokenCookieOptions);
+
+//     return res.status(200).json({ message: "Tokens refreshed successfully" });
+//   } catch (err) {
+//     console.error("Refresh token error:", err);
+//     return res
+//       .status(401)
+//       .json({ message: "Invalid or expired refresh token" });
+//   }
+// };
+
+export const refreshToken = async (req: Request, res: Response) => {
+  const token = req.cookies?.refreshToken;
+  if (!token) return res.status(401).json({ message: "Missing refresh token" });
 
   try {
-    // 1. Decode and verify refresh token
-    const payload = jwt.verify(
-      refreshToken,
-      REFRESH_TOKEN_SECRET
-    ) as jwt.JwtPayload & {
-      sub: string; // user ID
-      tv: number; // tokenVersion
+    const payload = jwt.verify(token, ENV.REFRESH_TOKEN_SECRET) as jwt.JwtPayload & {
+      sub: string;
+      tv: number;
     };
 
-    // 2. Lookup user and validate tokenVersion
     const user = await User.findById(payload.sub).select("+tokenVersion");
-    if (!user) {
-      return res.status(401).json({ message: "User not found" });
+
+    if (!user || user.tokenVersion !== payload.tv) {
+      return res.status(401).json({ message: "Invalid or revoked refresh token" });
     }
 
-    if (user.tokenVersion !== payload.tv) {
-      return res.status(401).json({ message: "Token has been revoked" });
-    }
-
-    // 3. Generate new access token (15m)
-    const newAccessToken = jwt.sign(
-      {
-        sub: user.id,
-        tv: user.tokenVersion,
-        isAdmin: user.isAdmin,
-      },
-      ACCESS_TOKEN_SECRET,
-      { expiresIn: "15m" }
-    );
-
-    // 4. Optionally issue new refresh token (7d)
-    const newRefreshToken = jwt.sign(
-      {
-        sub: user.id,
-        tv: user.tokenVersion,
-      },
-      REFRESH_TOKEN_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    return res.status(200).json({
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
+    const newAccessToken = createAccessToken({
+      _id: user._id as mongoose.Types.ObjectId,  // cast
+      tokenVersion: user.tokenVersion,
+      isAdmin: user.isAdmin,
     });
-  } catch (err) {
-    console.error("Refresh token error:", err);
-    return res
-      .status(401)
-      .json({ message: "Invalid or expired refresh token" });
+
+    const newRefreshToken = createRefreshToken({
+      _id: user._id as mongoose.Types.ObjectId,  // cast
+      tokenVersion: user.tokenVersion,
+    });
+
+    // ✅ set new cookies
+    res.cookie("accessToken", newAccessToken, accessTokenCookieOptions);
+    res.cookie("refreshToken", newRefreshToken, refreshTokenCookieOptions);
+
+    return res.status(200).json({ message: "Tokens refreshed successfully" });
+  } catch {
+    return res.status(401).json({ message: "Invalid or expired refresh token" });
   }
 };
+
+export const logoutUser = (req: Request, res: Response) => {
+  res.clearCookie("accessToken", accessTokenCookieOptions)
+  res.clearCookie("refreshToken", refreshTokenCookieOptions,)
+
+  res.json({ message: "Logged out successfully" });
+}

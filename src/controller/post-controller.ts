@@ -349,11 +349,6 @@ export const uploadImage = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    console.log('Upload Image Request:', {
-      body: req.body,
-      file: req.file,
-      user: req.user
-    });
 
     if (!req.user?.id) {
       res.status(401).json({ message: "Unauthorized" });
@@ -362,7 +357,6 @@ export const uploadImage = async (
 
     const { postId } = req.body;
     if (!postId) {
-      console.log('Missing postId in request body');
       res.status(400).json({ message: "Post ID is required" });
       return;
     }
@@ -370,29 +364,23 @@ export const uploadImage = async (
     // Check if post exists and user owns it
     const post = await Post.findById(postId);
     if (!post) {
-      console.log('Post not found:', postId);
       res.status(404).json({ message: "Post not found" });
       return;
     }
 
     if (!req.user.isAdmin && String(post.author) !== req.user.id) {
-      console.log('User not authorized to modify post:', { userId: req.user.id, postAuthor: post.author });
       res.status(403).json({ message: "Forbidden" });
       return;
     }
 
     const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) {
-      console.log('No file in request');
+
       res.status(400).json({ message: "Image file is required" });
       return;
     }
 
-    console.log('File details:', {
-      originalname: file.originalname,
-      mimetype: file.mimetype,
-      size: file.size
-    });
+
 
     // Upload to Cloudinary
     const { url, publicId } = await uploadToCloudinary(
@@ -400,8 +388,6 @@ export const uploadImage = async (
       file.originalname,
       { folder: "posts", publicIdBase: req.body.title || "post" }
     );
-
-    console.log('Cloudinary upload successful:', { url, publicId });
 
     res.status(200).json({
       url,

@@ -297,25 +297,19 @@ exports.deletePost = deletePost;
 const uploadImage = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
   var _a;
   try {
-    // console.log('Upload Image Request:', {
-    //     body: req.body,
-    //     file: req.file,
-    //     user: req.user
-    // });
+
     if (!((_a = req.user) === null || _a === void 0 ? void 0 : _a.id)) {
       res.status(401).json({ message: "Unauthorized" });
       return;
     }
     const { postId } = req.body;
     if (!postId) {
-      // console.log('Missing postId in request body');
       res.status(400).json({ message: "Post ID is required" });
       return;
     }
     // Check if post exists and user owns it
     const post = yield post_model_1.default.findById(postId);
     if (!post) {
-      // console.log('Post not found:', postId);
       res.status(404).json({ message: "Post not found" });
       return;
     }
@@ -326,18 +320,11 @@ const uploadImage = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
     }
     const file = req.file;
     if (!file) {
-      // console.log('No file in request');
       res.status(400).json({ message: "Image file is required" });
       return;
     }
-    // console.log('File details:', {
-    //   originalname: file.originalname,
-    //   mimetype: file.mimetype,
-    //   size: file.size
-    // });
     // Upload to Cloudinary
     const { url, publicId } = yield (0, upload_image_1.uploadImage)(file.buffer, file.originalname, { folder: "posts", publicIdBase: req.body.title || "post" });
-    // console.log('Cloudinary upload successful:', { url, publicId });
     res.status(200).json({
       url,
       publicId,

@@ -7,27 +7,31 @@ import User from "../models/user-model";
 // Single source of truth: read Bearer and verify { sub, tv }
 export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const token = (req.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+    const token = req.cookies?.accessToken;
     if (!token) {
-      res.status(401).json({ message: "No token" });
-      return;
+      return res.status(401).json({ message: "No token" });
     }
 
     const payload = jwt.verify(token, ENV.ACCESS_TOKEN_SECRET) as JwtPayload & {
       sub: string; // user id
-      tv: number;  // tokenVersion
+      tv: number; // tokenVersion
       isAdmin?: boolean;
     };
 
     const u = await User.findById(payload.sub).select("+tokenVersion");
     if (!u || u.tokenVersion !== payload.tv) {
-      res.status(401).json({ message: "Session expired" });
-      return;
+      return res.status(401).json({ message: "Session expired" });
     }
 
     // attach normalized user info
-    req.user = { id: u.id, email: u.email, isAdmin: u.isAdmin, tv: u.tokenVersion };
-    next();
+    (req as any).user = {
+      id: u.id,
+      email: u.email,
+      isAdmin: u.isAdmin,
+      tv: u.tokenVersion,
+    };
+
+    return next();
   } catch (e: any) {
     const msg = e.name === "TokenExpiredError" ? "Access token expired" : "Unauthorized";
     res.status(401).json({ message: msg });
@@ -36,7 +40,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
 export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
   if (req.user?.isAdmin) return next();
-  res.status(403).json({ message: "Forbidden" });
+  return res.status(403).json({ message: "Forbidden" });
 };
 
 

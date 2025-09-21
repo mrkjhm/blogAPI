@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+import cookiePaser from "cookie-parser";
 import cors, { CorsOptions } from "cors";
 import express from "express";
 import swaggerJSDoc, { Options as SwaggerJSDocOptions } from "swagger-jsdoc";
@@ -12,13 +13,12 @@ import commentRoutes from "./routes/comment-routes";
 import postRoutes from "./routes/post-routes";
 import userRoutes from "./routes/user-routes";
 
-
 const app = express();
 const PORT = Number(ENV.PORT);
 
 const allowed = (ENV.CORS_ORIGINS || "")
   .split(",")
-  .map(s => s.trim())
+  .map((s) => s.trim())
   .filter(Boolean);
 
 // Always allow the server's own origin so Swagger UI (served by this app) works
@@ -30,18 +30,19 @@ const corsOptions: CorsOptions = {
     if (!origin || allowed.includes(origin)) return callback(null, true);
     return callback(new Error(`CORS blocked: ${origin}`));
   },
-  credentials: false,         // <-- localStorage/Bearer (no cookies)
+  credentials: true,
   optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
 
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookiePaser());
 
-
-app.get("/", (_req, res) => { res.send("Hello TypeScript + Express!"); });
+app.get("/", (_req, res) => {
+  res.send("Hello TypeScript + Express!");
+});
 
 app.get("/hello", (_req, res) => {
   res.status(400).send("Use POST request instead with a body.");
@@ -51,6 +52,7 @@ app.post("/hello", (req, res) => {
   const { firstName, lastName } = req.body;
   res.send(`Hello there ${firstName} ${lastName}!`);
 });
+
 
 // Swagger setup
 const swaggerDefinition = {
